@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Editable & Collapsible Claims Table</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 40px; }
+    .claims-table { border-collapse: collapse; width: 100%; background: #fff; }
+    .claims-table th, .claims-table td {
+      padding: 8px 10px;
+      border: 1px solid #dedede;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .claims-table th {
+      background: #f2f2f2;
+      font-weight: bold;
+      font-size: 15px;
+    }
+    .group-row {
+      background: #e7f4ea;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .group-row:hover {
+      background: #c3e6d2;
+    }
+    .arrow { margin-right: 8px; transition: transform 0.2s ease; }
+    .collapsed .arrow { transform: rotate(-90deg); }
+    .claims-row { background: #fff; }
+    .subclaim-row td {
+      background: #f7fafc;
+      color: #333;
+      padding-left: 32px !important;
+    }
+    .hidden { display: none; }
+    .delete-btn {
+      background: #e74c3c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      margin-left: 8px;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+    .delete-btn:hover {
+      background: #c0392b;
+    }
+    .add-controls {
+      margin: 12px 0 12px 30px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .add-controls input, .add-controls select {
+      padding: 4px 7px;
+      font-size: 14px;
+    }
+    .add-controls button {
+      padding: 4px 12px;
+      font-size: 14px;
+      background: #057d15;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .add-controls button:hover {
+      background: #004e0b;
+    }
+  </style>
+</head>
+<body>
+  <h2>Claims grouped by Claim Number (with visual subclaims and sums)</h2>
+  <table class="claims-table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Claim Number</th>
+        <th>Created on</th>
+        <th>Street</th>
+        <th>Customer</th>
+        <th>Claim Item</th>
+        <th>Status</th>
+        <th>Amount Approved</th>
+        <th>Amount Paid</th>
+        <th>State</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="claimsBody">
+      <!-- JS inserts rows here -->
+    </tbody>
+  </table>
+  <script>
+    // Visual example: both claims contain subclaims and sums
+    let claimsData = [
+      {
+        claimNumber: "CL/2025/0000123296",
+        createdOn: "09/19/2025 15:00",
+        street: "3323 Laurel Hill",
+        customer: "Shane & Rachel",
+        claimItem: "Kitchen Refrigerator",
+        status: "Initiated",
+        amountApproved: 0.00,
+        state: "Texas (US)",
+        subclaims: [
+          {
+            createdOn: "09/20/2025 10:05",
+            street: "3323 Laurel Hill",
+            customer: "Shane & Rachel",
+            claimItem: "Kitchen Refrigerator",
+            status: "Completed",
+            amountApproved: 0.00,
+            amountPaid: 20.00,
+            state: "Texas (US)"
+          },
+          {
+            createdOn: "09/20/2025 14:20",
+            street: "3323 Laurel Hill",
+            customer: "Shane & Rachel",
+            claimItem: "Kitchen Refrigerator",
+            status: "Completed",
+            amountApproved: 0.00,
+            amountPaid: 35.50,
+            state: "Texas (US)"
+          }
+        ]
+      },
+      {
+        claimNumber: "CL/2025/0000112542",
+        createdOn: "06/09/2025 15:00",
+        street: "3323 Laurel Hill",
+        customer: "Shane & Rachel",
+        claimItem: "Oven/Range/Cooktop",
+        status: "Completed",
+        amountApproved: 0.00,
+        state: "Texas (US)",
+        subclaims: [
+          {
+            createdOn: "06/10/2025 11:00",
+            street: "3323 Laurel Hill",
+            customer: "Shane & Rachel",
+            claimItem: "Oven/Range/Cooktop",
+            status: "Completed",
+            amountApproved: 0.00,
+            amountPaid: 50.25,
+            state: "Texas (US)"
+          },
+          {
+            createdOn: "06/10/2025 11:00",
+            street: "3323 Laurel Hill",
+            customer: "Shane & Rachel",
+            claimItem: "Kitchen Refrigerator",
+            status: "Completed",
+            amountApproved: 0.00,
+            amountPaid: 32.75,
+            state: "Texas (US)"
+          }
+        ]
+      }
+    ];
+
+    function renderClaimsTable() {
+      const tbody = document.getElementById('claimsBody');
+      tbody.innerHTML = '';
+      claimsData.forEach((claim, groupIdx) => {
+        const groupId = `group-${groupIdx}`;
+        const totalPaid = claim.subclaims.reduce((sum, sc) => sum + Number(sc.amountPaid || 0), 0);
+
+        // Main (collapsible) row
+        const groupRow = document.createElement('tr');
+        groupRow.className = 'group-row';
+        groupRow.setAttribute('data-group', groupId);
+        groupRow.innerHTML = `
+          <td><span class="arrow">&#9654;</span></td>
+          <td>${claim.claimNumber}</td>
+          <td>${claim.createdOn}</td>
+          <td>${claim.street}</td>
+          <td>${claim.customer}</td>
+          <td>${claim.claimItem}</td>
+          <td>${claim.status}</td>
+          <td><b>$${Number(claim.amountApproved).toFixed(2)}</b></td>
+          <td><b>$${Number(totalPaid).toFixed(2)}</b></td>
+          <td>${claim.state}</td>
+          <td>Subclaims: ${claim.subclaims.length}</td>
+        `;
+        groupRow.onclick = function(e) {
+          if(e.target.tagName === 'BUTTON') return;
+          const collapsed = groupRow.classList.toggle('collapsed');
+          for (const row of tbody.querySelectorAll(`.subclaim-row[data-group="${groupId}"]`)) {
+            row.classList.toggle('hidden', collapsed);
+          }
+          groupRow.querySelector('.arrow').style.transform = collapsed ? 'rotate(-90deg)' : '';
+        };
+        tbody.appendChild(groupRow);
+
+        // Subclaims
+        claim.subclaims.forEach((sc, idx) => {
+          const claimNumberSuffix = `${claim.claimNumber} - ${idx + 1}`;
+          const claimRow = document.createElement('tr');
+          claimRow.className = 'subclaim-row';
+          claimRow.setAttribute('data-group', groupId);
+          claimRow.innerHTML = `
+            <td></td>
+            <td>${claimNumberSuffix}</td>
+            <td>${sc.createdOn}</td>
+            <td>${sc.street}</td>
+            <td>${sc.customer}</td>
+            <td>${sc.claimItem}</td>
+            <td>${sc.status}</td>
+            <td>${Number(sc.amountApproved).toFixed(2)}</td>
+            <td>${Number(sc.amountPaid).toFixed(2)}</td>
+            <td>${sc.state}</td>
+            <td>
+              <!-- Visual only, not functional -->
+              <button class="delete-btn" disabled style="opacity:0.5;cursor:not-allowed;">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(claimRow);
+        });
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', renderClaimsTable);
+  </script>
+</body>
+</html>
